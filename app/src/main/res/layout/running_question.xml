@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mainDrawer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".activities.MainActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.google.android.material.appbar.AppBarLayout
+            android:id="@+id/appBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.appbar.MaterialToolbar
+                android:id="@+id/appBar"
+                style="@style/Widget.MaterialComponents.Toolbar.Primary"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                app:navigationIcon="@drawable/ic_hamburger"
+                app:title="Running question"/>
+
+        </com.google.android.material.appbar.AppBarLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMCQ"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="MCQ"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#0D47A1"
+            app:backgroundTint="@null"
+            android:background="@drawable/rounded_button_background"
+            app:layout_constraintEnd_toStartOf="@id/guideline"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/appBarLayout"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginTop="8dp" />
+
+        <!-- Underline for Button MCQ -->
+        <View
+            android:id="@+id/underlineMCQ"
+            android:layout_width="0dp"
+            android:layout_height="2dp"
+            android:background="#0D47A1"
+            app:layout_constraintTop_toBottomOf="@id/btnMCQ"
+            app:layout_constraintStart_toStartOf="@id/btnMCQ"
+            app:layout_constraintEnd_toEndOf="@id/btnMCQ"
+            android:visibility="invisible" />
+
+        <!-- Button Short Question -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnShortQuestion"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Short Question"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#0D47A1"
+            app:backgroundTint="@null"
+            android:background="@drawable/rounded_button_background"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/guideline"
+            app:layout_constraintTop_toBottomOf="@id/appBarLayout"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="8dp" />
+
+        <!-- Underline for Button Short Question -->
+        <View
+            android:id="@+id/underlineShortQuestion"
+            android:layout_width="0dp"
+            android:layout_height="2dp"
+            android:background="#0D47A1"
+            app:layout_constraintTop_toBottomOf="@id/btnShortQuestion"
+            app:layout_constraintStart_toStartOf="@id/btnShortQuestion"
+            app:layout_constraintEnd_toEndOf="@id/btnShortQuestion"
+            android:visibility="invisible" />
+
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5"/>
+
+        <!-- Refresh Button -->
+        <Button
+            android:id="@+id/refreshButton"
+            android:layout_width="184dp"
+            android:layout_height="45dp"
+            android:text="Refresh"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/btnMCQ"
+            android:layout_marginTop="16dp" />
+
+        <!-- RecyclerViews -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/quizRecyclerView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/refreshButton"
+            android:layout_marginTop="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/shortQuizRecyclerView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/refreshButton"
+            android:visibility="visible"
+            android:layout_marginTop="8dp" />
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- NavigationView -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigationView"
+        android:layout_gravity="start"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        app:headerLayout="@layout/drawer_header"
+        app:menu="@menu/drawer_menu" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

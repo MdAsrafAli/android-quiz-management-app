@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+
+    <item android:title="Profile" android:id="@+id/btnProfile"/>
+    <item android:title="Running question" android:id="@+id/btnRunning"/>
+    <item android:title="Add Course" android:id="@+id/addCourse"/>
+    <item android:title="Notifications" android:id="@+id/notificationInDrawer"/>
+    <item android:title="Results" android:id="@+id/Results"/>
+    <item android:title="Rate Us" android:id="@+id/btnRateUs"/>
+    <item android:title="Follow Us" android:id="@+id/btnFollowUs" />
+</menu>

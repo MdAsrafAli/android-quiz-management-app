@@ -1,0 +1,13 @@
+<resources>
+    <string-array name="date_array">
+        <item>2024-04-01</item>
+        <item>2024-04-02</item>
+        <!-- Add more dates as needed -->
+    </string-array>
+
+    <string-array name="time_array">
+        <item>09:00 AM</item>
+        <item>10:00 AM</item>
+        <!-- Add more times as needed -->
+    </string-array>
+</resources>

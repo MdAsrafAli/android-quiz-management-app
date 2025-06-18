@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#18206F</color>
+    <color name="colorPrimaryDark">#11164E</color>
+    <color name="colorAccent">#FF03DAC5</color>
+    <color name="colorPrimaryText">#18206F</color>
+    <color name="colorPrimaryTextOpaque">#18206F</color>
+    <color name="colorPrimaryButton">#FFFFFF</color>
+    <color name="colorEditTextBgColor">#f2f5fa</color>
+    <color name="colorEditTextBorderColor">#E9EBEF</color>
+    <color name="colorPrimaryButtonBg">#18206F</color>
+    <color name="button_text_color">#FF5722</color> <!-- Deep Orange color -->
+    <color name="black">#000000</color>
+    <color name="light_cyan">#00FFFF</color>
+    <color name="red">#FF0000</color>
+    <color name="light_blue">#ADD8E6</color>
+</resources>
