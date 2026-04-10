@@ -17,7 +17,7 @@ An Android application for managing quizzes built with Kotlin and Firebase. Teac
 - Review results after submission — correct/incorrect per question, score, and points
 
 ### General
-- User authentication (login/signup with phone number)
+- User authentication (login/signup)
 - Firebase Realtime Database for live data sync
 - Search/filter quizzes by title
 - MCQ and Short Answer tabs throughout the app
