@@ -2,12 +2,8 @@ package com.example.quiz.activities
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.text.Html
-import android.util.Log
-import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -22,101 +18,72 @@ import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
 
 class ResultActivity : AppCompatActivity() {
-    lateinit var quiz: Quiz
+    private lateinit var quiz: Quiz
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.answer_activity)
         setUpViews()
-        GoHome()
-
+        findViewById<com.google.android.material.button.MaterialButton>(R.id.homeButton)
+            .setOnClickListener {
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            }
     }
+
     private fun setUpViews() {
         val quizData = intent.getStringExtra("QUIZ")
-        quiz = Gson().fromJson<Quiz>(quizData, Quiz::class.java)
-        calculateScore()
+        quiz = Gson().fromJson(quizData, Quiz::class.java)
+        showScore()
         setAnswerView()
     }
-    private fun setAnswerView() {
-        val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
-        val adapter = AnswerAdapter(quiz.questions.values.toList())
-        recyclerView.adapter = adapter
-    }
 
-
-    private fun calculateScore() {
-        var score = 0
-        for (entry in quiz.questions.entries) {
-            val question = entry.value
-            if (question.answer == question.userAnswer) {
-                score += 10
-            }
+    private fun showScore() {
+        var correct = 0
+        val total = quiz.questions.size
+        for (q in quiz.questions.values) {
+            if (q.answer == q.userAnswer) correct++
         }
-        val txtScore: TextView=findViewById(R.id.resultScoreTextView)
-        txtScore.text = "Your Score : $score"
+        val points = correct * 10
+
+        findViewById<TextView>(R.id.resultScoreTextView).text = "$correct / $total correct"
+        findViewById<TextView>(R.id.tvPoints).text = "$points points"
+
         val sharedPreferences = getSharedPreferences("UserData", Context.MODE_PRIVATE)
         val userID = sharedPreferences.getString("Phone", "").toString()
         val name = sharedPreferences.getString("Name", "").toString()
         val title = intent.getStringExtra("TitleOfQuiz")
-        saveResultToFirebase(title.toString(), userID, name, score)
+        saveResultToFirebase(title.toString(), userID, name, points)
     }
-    private fun saveResultToFirebase(title: String, userID: String, name: String, score :Int) {
-        val database = FirebaseDatabase.getInstance()
-        val resultsRef = database.getReference("results").child(title)
 
-        // Check if userID already exists under the title node
+    private fun setAnswerView() {
+        val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
+        recyclerView.adapter = AnswerAdapter(quiz.questions.values.toList())
+    }
+
+    private fun saveResultToFirebase(title: String, userID: String, name: String, score: Int) {
+        val resultsRef = FirebaseDatabase.getInstance().getReference("results").child(title)
         resultsRef.child(userID).addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (snapshot.exists()) {
-                    // userID already exists, do not store the result
-                    Toast.makeText(this@ResultActivity, "Result already exists for this user", Toast.LENGTH_SHORT).show()
-                } else {
-                    // userID does not exist, store the result
-                    val resultData = mapOf(
-                        "userID" to userID,
-                        "name" to name,
-                        "score" to score
-                        // Add other result data here if needed
-                    )
+                if (!snapshot.exists()) {
+                    val resultData = mapOf("userID" to userID, "name" to name, "score" to score)
                     resultsRef.child(userID).setValue(resultData)
-                        .addOnSuccessListener {
-                            Toast.makeText(this@ResultActivity, "Result stored successfully", Toast.LENGTH_SHORT).show()
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(this@ResultActivity, "Failed to store result: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
                 }
             }
-
             override fun onCancelled(error: DatabaseError) {
                 Toast.makeText(this@ResultActivity, "Database error: ${error.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
-    private fun GoHome(){
-        var btnHome: Button =findViewById(R.id.homeButton)
-        btnHome.setOnClickListener{
-            intent= Intent(this, MainActivity::class.java)
-            startActivity(intent)
-            finish()
-        }
-    }
-    override fun onDestroy() {
-        super.onDestroy()
-        // Ensure that the activity is finished when it is destroyed
-        finish()
-    }
+
     override fun onBackPressed() {
-        // Build an AlertDialog for confirmation
         AlertDialog.Builder(this)
-            .setMessage("Go home screen?")
+            .setMessage("Go to home screen?")
             .setPositiveButton("Yes") { _, _ ->
-                // User confirmed, navigate to MainActivity
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                finish() // Finish the current activity
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
             }
-            .setNegativeButton("No", null) // Do nothing if user cancels
+            .setNegativeButton("No", null)
             .show()
     }
-
 }

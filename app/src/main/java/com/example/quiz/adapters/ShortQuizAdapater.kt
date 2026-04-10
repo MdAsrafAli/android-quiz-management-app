@@ -47,6 +47,7 @@ class ShortQuizAdapter(val context: Context, val quizzes: MutableList<ShortQuiz>
             intent.putExtra("ID",quizzes[position].id)
             intent.putExtra("POS",position)
             intent.putExtra("Duration",quizzes[position].duration)
+            intent.putExtra("TeacherPhone", quizzes[position].teacherPhone)
             Log.e("DurationAdapter",quizzes[position].duration.toString())
             context.startActivity(intent)
         }

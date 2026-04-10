@@ -73,12 +73,6 @@ class LoginActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setMessage("Are you sure you want to exit?")
             .setPositiveButton("Yes") { _, _ ->
-                // Update SharedPreferences to indicate the user is not logged in
-                val sharedPreferences = getSharedPreferences("UserData", Context.MODE_PRIVATE)
-                with(sharedPreferences.edit()) {
-                    putBoolean("IsLogin", false)
-                    apply()
-                }
                 finishAffinity()
             }
             .setNegativeButton("No", null)

@@ -1,6 +1,6 @@
-// AnswerAdapter.kt
 package com.example.quiz.adapters
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,23 +18,37 @@ class AnswerAdapter(private val questions: List<Question>) :
     }
 
     override fun onBindViewHolder(holder: AnswerViewHolder, position: Int) {
-        val question = questions[position]
-        holder.bind(question)
+        holder.bind(questions[position], position + 1)
     }
 
-    override fun getItemCount(): Int {
-        return questions.size
-    }
+    override fun getItemCount() = questions.size
 
     inner class AnswerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val questionTextView: TextView = itemView.findViewById(R.id.questionTextView)
         private val correctAnswerTextView: TextView = itemView.findViewById(R.id.correctAnswerTextView)
         private val userAnswerTextView: TextView = itemView.findViewById(R.id.userAnswerTextView)
+        private val statusStripe: View = itemView.findViewById(R.id.statusStripe)
+        private val tvResultBadge: TextView = itemView.findViewById(R.id.tvResultBadge)
 
-        fun bind(question: Question) {
-            questionTextView.text = "Question: ${question.description}"
-            correctAnswerTextView.text = "Correct Answer: ${question.answer}"
-            userAnswerTextView.text = "Your Answer: ${question.userAnswer}"
+        fun bind(question: Question, number: Int) {
+            val isCorrect = question.answer == question.userAnswer
+            questionTextView.text = "$number. ${question.description}"
+            correctAnswerTextView.text = "✓ Correct: ${question.answer}"
+
+            if (isCorrect) {
+                userAnswerTextView.text = "Your answer: ${question.userAnswer}"
+                userAnswerTextView.setTextColor(Color.parseColor("#2E7D32"))
+                statusStripe.setBackgroundColor(Color.parseColor("#4CAF50"))
+                tvResultBadge.text = "✓"
+                tvResultBadge.setTextColor(Color.parseColor("#2E7D32"))
+            } else {
+                val userAns = question.userAnswer?.takeIf { it.isNotEmpty() } ?: "(no answer)"
+                userAnswerTextView.text = "Your answer: $userAns"
+                userAnswerTextView.setTextColor(Color.parseColor("#C62828"))
+                statusStripe.setBackgroundColor(Color.parseColor("#F44336"))
+                tvResultBadge.text = "✗"
+                tvResultBadge.setTextColor(Color.parseColor("#C62828"))
+            }
         }
     }
 }

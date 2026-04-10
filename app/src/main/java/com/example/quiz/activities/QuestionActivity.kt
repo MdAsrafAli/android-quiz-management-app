@@ -1,10 +1,12 @@
 package com.example.quiz.activities
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -21,11 +23,11 @@ import java.util.concurrent.TimeUnit
 
 class QuestionActivity : AppCompatActivity() {
     private lateinit var timerTextView: TextView
+    private lateinit var tvQuestionCounter: TextView
+    private lateinit var progressBar: ProgressBar
     private var countDownTimer: CountDownTimer? = null
     private lateinit var binding: ActivityQuestionBinding
     private var d = 5L
-
-    private var databaseRef: DatabaseReference? = null
 
     private var quiz: Quiz? = null
     private var questionKeys: MutableList<String> = mutableListOf()
@@ -35,36 +37,32 @@ class QuestionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityQuestionBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         timerTextView = findViewById(R.id.timer)
+        tvQuestionCounter = findViewById(R.id.tvQuestionCounter)
+        progressBar = findViewById(R.id.progressBar)
         startTimer()
 
         val nodeKey = intent.getStringExtra("ID")
-        val rootRef = FirebaseDatabase.getInstance().reference.child("MCQ")
+        val teacherPhone = intent.getStringExtra("TeacherPhone") ?: ""
+        val quizRef = FirebaseDatabase.getInstance().reference
+            .child("MCQ").child(teacherPhone).child(nodeKey ?: "")
 
-        rootRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        quizRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                for (teacherSnapshot in snapshot.children) {
-                    val teacherId = teacherSnapshot.key
-                    for (quizSnapshot in teacherSnapshot.children) {
-                        val quizId = quizSnapshot.key
-                        if (quizId == nodeKey) {
-                            val questionSnapshot = quizSnapshot.child("questions")
-                            val questionList = mutableListOf<Question>()
-                            for (qSnap in questionSnapshot.children) {
-                                val questionData = qSnap.getValue(Question::class.java)
-                                questionData?.let { questionList.add(it) }
-                            }
+                val questionSnapshot = snapshot.child("questions")
+                val questionList = mutableListOf<Question>()
+                for (qSnap in questionSnapshot.children) {
+                    val questionData = qSnap.getValue(Question::class.java)
+                    questionData?.let { questionList.add(it) }
+                }
 
-                            if (questionList.isNotEmpty()) {
-                                quiz = Quiz()
-                                quiz?.questions = questionList.associateBy { it.description } as MutableMap<String, Question>
-                                questionKeys.addAll(quiz?.questions?.keys ?: emptyList())
-                                displayQuestion()
-                                Log.e("QuizFound", "Found in teacher: $teacherId")
-                            }
-                            return  // Exit after finding the quiz
-                        }
-                    }
+                if (questionList.isNotEmpty()) {
+                    quiz = Quiz()
+                    quiz?.questions = questionList.associateBy { it.description } as MutableMap<String, Question>
+                    questionKeys.addAll(quiz?.questions?.keys ?: emptyList())
+                    displayQuestion()
+                    Log.e("QuizFound", "Loaded from teacher: $teacherPhone")
                 }
             }
 
@@ -72,7 +70,6 @@ class QuestionActivity : AppCompatActivity() {
                 Log.e("QuestionActivity", "Error fetching data: ${error.message}")
             }
         })
-
 
         binding.btnPrevious.setOnClickListener {
             if (currentQuestionIndex > 0) {
@@ -85,57 +82,33 @@ class QuestionActivity : AppCompatActivity() {
             if (currentQuestionIndex < questionKeys.size - 1) {
                 currentQuestionIndex++
                 displayQuestion()
-            } else {
-                binding.btnNext.visibility = Button.GONE
-                binding.btnPrevious.visibility = Button.GONE
-                binding.btnSubmit.visibility = Button.VISIBLE
             }
         }
 
         binding.btnSubmit.setOnClickListener {
             finishQuiz()
         }
-
-        // Fetch duration and start the timer
-
-
     }
 
     private fun displayQuestion() {
-        if (currentQuestionIndex < 0 || currentQuestionIndex >= questionKeys.size) {
-            return
-        }
+        if (currentQuestionIndex < 0 || currentQuestionIndex >= questionKeys.size) return
 
-        val currentQuestionNumber = currentQuestionIndex + 1
+        val total = questionKeys.size
+        val current = currentQuestionIndex + 1
+        tvQuestionCounter.text = "Question $current of $total"
+        progressBar.progress = (current * 100) / total
+
         val currentQuestionKey = questionKeys[currentQuestionIndex]
         val currentQuestion = quiz?.questions?.get(currentQuestionKey)
 
-        val questionTextWithNumber = "$currentQuestionNumber. ${currentQuestion?.description}"
+        binding.description.text = "${current}. ${currentQuestion?.description}"
 
-        binding.description.text = questionTextWithNumber
-
-        binding.btnSubmit.visibility = if (currentQuestionIndex == questionKeys.size - 1) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
-
-        binding.btnPrevious.visibility = if (currentQuestionIndex > 0) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
-
-        binding.btnNext.visibility = if (currentQuestionIndex < questionKeys.size - 1) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
+        binding.btnSubmit.visibility = if (currentQuestionIndex == questionKeys.size - 1) Button.VISIBLE else Button.GONE
+        binding.btnPrevious.visibility = if (currentQuestionIndex > 0) Button.VISIBLE else Button.INVISIBLE
+        binding.btnNext.visibility = if (currentQuestionIndex < questionKeys.size - 1) Button.VISIBLE else Button.GONE
 
         currentQuestion?.let {
-            val description: TextView = findViewById(R.id.description)
             val optionList: RecyclerView = findViewById(R.id.optionList)
-            description.text = it.description
             val optionAdapter = OptionAdapters(this, it)
             optionList.layoutManager = LinearLayoutManager(this)
             optionList.adapter = optionAdapter
@@ -143,23 +116,22 @@ class QuestionActivity : AppCompatActivity() {
         }
     }
 
-
     private fun startTimer() {
-        d=intent.getLongExtra("Duration", 2L)
-        val quizTimeMillis = d * 60 * 1000 // Convert minutes to milliseconds
-        val countDownInterval = 1000L
-
-        countDownTimer = object : CountDownTimer(quizTimeMillis, countDownInterval) {
+        d = intent.getLongExtra("Duration", 2L)
+        val quizTimeMillis = d * 60 * 1000
+        countDownTimer = object : CountDownTimer(quizTimeMillis, 1000L) {
             override fun onTick(millisUntilFinished: Long) {
                 val minutes = TimeUnit.MILLISECONDS.toMinutes(millisUntilFinished)
                 val seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) % 60
-                val timeRemainingFormatted = String.format("%02d:%02d", minutes, seconds)
-                timerTextView.text = timeRemainingFormatted
+                timerTextView.text = String.format("%02d:%02d", minutes, seconds)
+                // Warn visually when time is low
+                when {
+                    millisUntilFinished < 30_000 -> timerTextView.setTextColor(Color.parseColor("#D32F2F"))
+                    millisUntilFinished < 60_000 -> timerTextView.setTextColor(Color.parseColor("#F57C00"))
+                    else -> timerTextView.setTextColor(Color.parseColor("#0D47A1"))
+                }
             }
-
-            override fun onFinish() {
-                finishQuiz()
-            }
+            override fun onFinish() { finishQuiz() }
         }.start()
     }
 
@@ -169,13 +141,10 @@ class QuestionActivity : AppCompatActivity() {
     }
 
     private fun finishQuiz() {
-        val title= intent.getStringExtra("TitleOfQuiz")
+        val title = intent.getStringExtra("TitleOfQuiz")
         val intent = Intent(this, ResultActivity::class.java)
-
-        val json = Gson().toJson(quiz)
-        intent.putExtra("QUIZ", json)
+        intent.putExtra("QUIZ", Gson().toJson(quiz))
         intent.putExtra("TitleOfQuiz", title)
-
         startActivity(intent)
         finish()
     }
@@ -184,8 +153,7 @@ class QuestionActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setMessage("Are you sure you want to exit?")
             .setPositiveButton("Yes") { _, _ ->
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
+                startActivity(Intent(this, MainActivity::class.java))
                 finish()
             }
             .setNegativeButton("No", null)

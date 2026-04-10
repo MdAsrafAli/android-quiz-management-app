@@ -13,11 +13,15 @@ import android.widget.Toast
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AlertDialog
 import androidx.drawerlayout.widget.DrawerLayout
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.quiz.R
 import com.example.quiz.adapters.QuizAdapter
 import com.example.quiz.adapters.ShortQuizAdapter
+import com.example.quiz.adapters.TeacherSection
+import com.example.quiz.adapters.TeacherSectionAdapter
+import com.example.quiz.adapters.TeacherShortSection
+import com.example.quiz.adapters.TeacherShortSectionAdapter
 import com.example.quiz.models.Quiz
 import com.example.quiz.models.ShortQuiz
 import com.google.android.material.appbar.MaterialToolbar
@@ -47,10 +51,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var databaseRef:FirebaseDatabase
     private lateinit var firebaseAuth:FirebaseAuth
     lateinit var actionBarDrawerToggle: ActionBarDrawerToggle
-    lateinit var shortadapter:ShortQuizAdapter
-    lateinit var adapter: QuizAdapter
-    private var quizList=mutableListOf<Quiz>()
-    private var shortquizlist= mutableListOf<ShortQuiz>()
+    // Per-teacher quiz maps — key is teacher phone number
+    private val teacherMcqMap = mutableMapOf<String, MutableList<Quiz>>()
+    private val teacherShortMap = mutableMapOf<String, MutableList<ShortQuiz>>()
+    private val teacherNameMap = mutableMapOf<String, String>()
+    private var currentMcqFilter = ""
+    private var currentShortFilter = ""
     private lateinit var set: Set<String>
     lateinit var quizRecyclerView: RecyclerView
     lateinit var shortQuizRecyclerView: RecyclerView
@@ -75,7 +81,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var Results : Button
     private lateinit var profile : Button
     private var Notify =0
-    private var A =0
     private var dialogShown = false
 
     object QuizManager {
@@ -240,6 +245,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 for (item in list) {
                     Log.e("itemOfList",item)
+                    fetchTeacherName(item)
                     setUpRealtimeDatabaseforMCQ(item)
                     setUpRealtimeDatabase(item)
                 }
@@ -371,110 +377,110 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    private fun fetchTeacherName(phone: String) {
+        FirebaseDatabase.getInstance().reference
+            .child("users").child(phone)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val name = snapshot.child("name").getValue(String::class.java) ?: phone
+                    teacherNameMap[phone] = name
+                    rebuildMcqSections()
+                    rebuildShortSections()
+                }
+                override fun onCancelled(error: DatabaseError) {
+                    teacherNameMap[phone] = phone
+                }
+            })
+    }
+
     private fun setUpRealtimeDatabaseforMCQ(item: String) {
         databaseRef = Firebase.database
         val ref = databaseRef.reference.child("MCQ").child(item)
 
-
-
-
         ref.addValueEventListener(object : ValueEventListener {
-                    override fun onDataChange(dataSnapshot: DataSnapshot) {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                val currentDate = Date()
+                val mcqList = mutableListOf<Quiz>()
 
-                        val currentDate = Date()
                 for (snap in dataSnapshot.children) {
                     val itm = snap.getValue(Quiz::class.java)
-                    A++
                     if (itm != null) {
+                        itm.teacherPhone = item
                         val dateFormat = SimpleDateFormat("yyyy-MM-dd hh:mm a")
-                        val selectedDateTime = dateFormat.parse(itm.selectedDateTime)
-                        val comparisonResult = currentDate.compareTo(selectedDateTime)
-
-                        if (comparisonResult >= 0) {
-                            itm.let {
-                                quizList.add(it)
+                        try {
+                            val selectedDateTime = dateFormat.parse(itm.selectedDateTime)
+                            if (currentDate.compareTo(selectedDateTime) >= 0) {
+                                mcqList.add(itm)
+                            } else {
+                                QuizManager.NotifyquizList.add(itm)
                             }
+                        } catch (e: Exception) {
+                            mcqList.add(itm)
                         }
-                        else{
-                            itm.let{
-                                QuizManager.NotifyquizList.add(it)
-                            }
-                        }
-
-
                     }
-                    updateNotification()
                 }
 
-
-                        Log.e("QuizListSize",quizList.size.toString())
-                setAdapterMCQ(quizList)
-                        Log.d("quizList",quizList.toString())
+                teacherMcqMap[item] = mcqList
+                Log.e("MCQListSize", mcqList.size.toString())
+                updateNotification()
+                rebuildMcqSections()
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                // Handle database error
                 Toast.makeText(this@MainActivity,
                     "Error fetching data: ${databaseError.message}", Toast.LENGTH_SHORT).show()
             }
         })
-
-
     }
 
-
-    private fun setAdapterMCQ(quizlist: MutableList<Quiz>) {
-
-        Log.d("Quilist",quizList.toString())
-        adapter= QuizAdapter(this,quizlist)
-        var QuizRecyclerView=findViewById<RecyclerView>(R.id.quizRecyclerView)
-        QuizRecyclerView.layoutManager=GridLayoutManager(this,2)
-        quizRecyclerView.adapter=adapter
-
+    private fun rebuildMcqSections(filter: String = currentMcqFilter) {
+        currentMcqFilter = filter
+        val sections = teacherMcqMap.mapNotNull { (phone, quizzes) ->
+            val filtered = if (filter.isEmpty()) quizzes
+                           else quizzes.filter { it.title?.contains(filter, true) == true }
+            if (filtered.isEmpty()) null
+            else TeacherSection(
+                teacherPhone = phone,
+                teacherName = teacherNameMap[phone] ?: phone,
+                quizzes = filtered
+            )
+        }
+        quizRecyclerView.layoutManager = LinearLayoutManager(this)
+        quizRecyclerView.adapter = TeacherSectionAdapter(this, sections)
     }
     private fun setUpRealtimeDatabase(item: String) {
         databaseRef = Firebase.database
         val ref = databaseRef.reference.child("Qizzs").child(item)
-
+        val dateFormat = SimpleDateFormat("yyyy-M-d hh:mm a", Locale.getDefault())
 
         ref.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 val currentDate = Date()
-                val shortquizlist = mutableListOf<ShortQuiz>()
-
-                // Adjusted date format to match input string
-                val dateFormat = SimpleDateFormat("yyyy-M-d hh:mm a", Locale.getDefault())
+                val shortList = mutableListOf<ShortQuiz>()
 
                 for (snap in dataSnapshot.children) {
                     val itm = snap.getValue(ShortQuiz::class.java)
                     if (itm != null) {
+                        itm.teacherPhone = item
                         val selectedDateTimeStr = itm.selectedDateTime
                         if (!selectedDateTimeStr.isNullOrEmpty()) {
                             try {
                                 val selectedDateTime = dateFormat.parse(selectedDateTimeStr)
-                                if (selectedDateTime != null) {
-                                    val comparisonResult = currentDate.compareTo(selectedDateTime)
-                                    if (comparisonResult >= 0) {
-                                        shortquizlist.add(itm)
-                                    } else {
-                                        // Handle future dates if needed
-                                    }
+                                if (selectedDateTime != null && currentDate.compareTo(selectedDateTime) >= 0) {
+                                    shortList.add(itm)
                                 }
                             } catch (e: ParseException) {
-                                // Handle parse exception
                                 Log.e("ParseError", "Error parsing date: $selectedDateTimeStr", e)
                             }
-                        } else {
-                            Log.e("ParseError", "Empty or null date: $selectedDateTimeStr")
                         }
                     }
                 }
 
-                setAdapter(shortquizlist)
+                teacherShortMap[item] = shortList
+                rebuildShortSections()
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                // Handle database error
                 Toast.makeText(
                     this@MainActivity,
                     "Error fetching data: ${databaseError.message}", Toast.LENGTH_SHORT
@@ -483,17 +489,20 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-
-
-
-
-    private fun setAdapter(shortquizlist: MutableList<ShortQuiz>) {
-
-        shortadapter= ShortQuizAdapter(this,shortquizlist)
-        var shortQuizRecyclerView=findViewById<RecyclerView>(R.id.shortQuizRecyclerView)
-        shortQuizRecyclerView.layoutManager=GridLayoutManager(this,2)
-        shortQuizRecyclerView.adapter=shortadapter
-
+    private fun rebuildShortSections(filter: String = currentShortFilter) {
+        currentShortFilter = filter
+        val sections = teacherShortMap.mapNotNull { (phone, quizzes) ->
+            val filtered = if (filter.isEmpty()) quizzes
+                           else quizzes.filter { it.title?.contains(filter, true) == true }
+            if (filtered.isEmpty()) null
+            else TeacherShortSection(
+                teacherPhone = phone,
+                teacherName = teacherNameMap[phone] ?: phone,
+                quizzes = filtered
+            )
+        }
+        shortQuizRecyclerView.layoutManager = LinearLayoutManager(this)
+        shortQuizRecyclerView.adapter = TeacherShortSectionAdapter(this, sections)
     }
     private fun AddQuiz(){
         AddQuizButton=findViewById(R.id.AddQuizButton)
@@ -616,15 +625,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun filter(text: String) {
-        val filteredList = mutableListOf<Quiz>()
-        for (item in quizList) {
-            val title = item.title.orEmpty() // Handle null titles
-            if (title.contains(text, true)) {
-                filteredList.add(item)
-            }
-        }
-       //Log.d("Filter", "Filtered List: $filteredList")
-        setAdapterMCQ(filteredList)
+        rebuildMcqSections(text)
     }
     private fun setUpSearchFunctionalityForShortQuiz(hint: String){
         searchEditText.hint=hint
@@ -640,16 +641,8 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun filterShortQuiz(text: String){
-        val filteredList = mutableListOf<ShortQuiz>()
-        for (item in shortquizlist) {
-            val title = item.title.orEmpty() // Handle null titles
-            if (title.contains(text, true)) {
-                filteredList.add(item)
-            }
-        }
-        Log.d("Filter", "Filtered List: $filteredList")
-        setAdapter(filteredList)
+    private fun filterShortQuiz(text: String) {
+        rebuildShortSections(text)
     }
 
     override fun onBackPressed() {

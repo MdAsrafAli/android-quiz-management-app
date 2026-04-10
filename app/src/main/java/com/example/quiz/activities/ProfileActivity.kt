@@ -42,10 +42,9 @@ class ProfileActivity : AppCompatActivity() {
                 putString("Name", "")
                 putString("Role", "")
                 putString("Phone", "")
-                putBoolean("IsLogin", false)
                 apply()
             }
-            val intent = Intent(this, VerifyOTP::class.java)
+            val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
             finish()
         }

@@ -44,7 +44,7 @@ class QuizAdapter(val context: Context, val quizzes: List<Quiz>) : RecyclerView.
             intent.putExtra("ID",quizzes[position].id)
             intent.putExtra("Duration",quizzes[position].duration)
             intent.putExtra("TitleOfQuiz",quizzes[position].title.toString())
-            intent.putExtra("TitleOfQuiz",quizzes[position].title.toString())
+            intent.putExtra("TeacherPhone", quizzes[position].teacherPhone)
             context.startActivity(intent)
         }
     }

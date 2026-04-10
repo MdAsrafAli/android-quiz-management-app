@@ -1,12 +1,14 @@
 package com.example.quiz.activities
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -20,13 +22,11 @@ import java.util.concurrent.TimeUnit
 
 class ShortQuestionActivity : AppCompatActivity() {
     private lateinit var timerTextView: TextView
+    private lateinit var tvQuestionCounter: TextView
+    private lateinit var progressBar: ProgressBar
     private var countDownTimer: CountDownTimer? = null
     private lateinit var binding: ActivityShortQuestionBinding
-    var quizzes: MutableList<ShortQuiz>? = null
-    var questions: MutableMap<String, ShortQuestion>? = null
     private var d = 5L
-
-    private var databaseRef: DatabaseReference? = null
 
     private var shortQuiz: ShortQuiz? = null
     private var questionKeys: MutableList<String> = mutableListOf()
@@ -36,47 +36,40 @@ class ShortQuestionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityShortQuestionBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        timerTextView = findViewById(R.id.timerTextView)
+
+        timerTextView = binding.timerTextView
+        tvQuestionCounter = binding.tvQuestionCounter
+        progressBar = binding.progressBar
         startTimer()
 
-        val pos = intent.getIntExtra("POS", 0)
         val nodeKey = intent.getStringExtra("ID")
-        val rootRef = FirebaseDatabase.getInstance().reference.child("Qizzs")
+        val teacherPhone = intent.getStringExtra("TeacherPhone") ?: ""
+        val quizRef = FirebaseDatabase.getInstance().reference
+            .child("Qizzs").child(teacherPhone).child(nodeKey ?: "")
 
-        rootRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        quizRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                for (teacherSnapshot in snapshot.children) {
-                    val teacherId = teacherSnapshot.key
-                    for (quizSnapshot in teacherSnapshot.children) {
-                        val quizId = quizSnapshot.key
-                        if (quizId == nodeKey) {
-                            val questionSnapshot = quizSnapshot.child("questions")
-                            val questionList = mutableListOf<ShortQuestion>()
-                            for (qSnap in questionSnapshot.children) {
-                                val questionData = qSnap.getValue(ShortQuestion::class.java)
-                                questionData?.let { questionList.add(it) }
-                            }
+                val questionSnapshot = snapshot.child("questions")
+                val questionList = mutableListOf<ShortQuestion>()
+                for (qSnap in questionSnapshot.children) {
+                    val questionData = qSnap.getValue(ShortQuestion::class.java)
+                    questionData?.let { questionList.add(it) }
+                }
 
-                            Log.d("ShortQuestionActivity", "Questions fetched: $questionList")
+                Log.d("ShortQuestionActivity", "Questions fetched: ${questionList.size}")
 
-                            if (questionList.isNotEmpty()) {
-                                shortQuiz = ShortQuiz()
-                                shortQuiz?.questions = questionList.associateBy { it.text } as MutableMap<String, ShortQuestion>
-                                questionKeys.addAll(shortQuiz?.questions?.keys ?: emptyList())
-                                displayQuestion()
-                            }
-
-                            return  // Exit after finding the correct quiz
-                        }
-                    }
+                if (questionList.isNotEmpty()) {
+                    shortQuiz = ShortQuiz()
+                    shortQuiz?.questions = questionList.associateBy { it.text } as MutableMap<String, ShortQuestion>
+                    questionKeys.addAll(shortQuiz?.questions?.keys ?: emptyList())
+                    displayQuestion()
                 }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                Log.e("ShortQuestionActivity", "Error fetching questions: ${databaseError.message}")
+                Log.e("ShortQuestionActivity", "Error: ${databaseError.message}")
             }
         })
-
 
         binding.previousButton.setOnClickListener {
             if (currentQuestionIndex > 0) {
@@ -89,80 +82,55 @@ class ShortQuestionActivity : AppCompatActivity() {
             if (currentQuestionIndex < questionKeys.size - 1) {
                 currentQuestionIndex++
                 displayQuestion()
-            } else {
-                binding.nextButton.visibility = Button.GONE
-                binding.previousButton.visibility = Button.GONE
-                binding.submitButton.visibility = Button.VISIBLE
             }
         }
 
-        binding.submitButton.setOnClickListener {
-            finishQuiz()
-        }
+        binding.submitButton.setOnClickListener { finishQuiz() }
 
         binding.answerEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                val currentQuestionKey = questionKeys[currentQuestionIndex]
-                val currentQuestion = shortQuiz?.questions?.get(currentQuestionKey)
-                currentQuestion?.userAnswer = s.toString()
+                val currentQuestionKey = questionKeys.getOrNull(currentQuestionIndex) ?: return
+                shortQuiz?.questions?.get(currentQuestionKey)?.userAnswer = s.toString()
             }
         })
-
-
     }
 
     private fun displayQuestion() {
-        if (currentQuestionIndex < 0 || currentQuestionIndex >= questionKeys.size) {
-            return
-        }
+        if (currentQuestionIndex < 0 || currentQuestionIndex >= questionKeys.size) return
 
-        val currentQuestionNumber = currentQuestionIndex + 1
+        val total = questionKeys.size
+        val current = currentQuestionIndex + 1
+        tvQuestionCounter.text = "Question $current of $total"
+        progressBar.progress = (current * 100) / total
+
         val currentQuestionKey = questionKeys[currentQuestionIndex]
         val currentQuestion = shortQuiz?.questions?.get(currentQuestionKey)
 
-        val questionTextWithNumber = "$currentQuestionNumber. ${currentQuestion?.text}"
-        binding.questionTextView.text = questionTextWithNumber
+        binding.questionTextView.text = "$current. ${currentQuestion?.text}"
         binding.answerEditText.setText(currentQuestion?.userAnswer ?: "")
 
-        binding.submitButton.visibility = if (currentQuestionIndex == questionKeys.size - 1) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
-
-        binding.previousButton.visibility = if (currentQuestionIndex > 0) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
-
-        binding.nextButton.visibility = if (currentQuestionIndex < questionKeys.size - 1) {
-            Button.VISIBLE
-        } else {
-            Button.GONE
-        }
+        binding.submitButton.visibility = if (currentQuestionIndex == questionKeys.size - 1) Button.VISIBLE else Button.GONE
+        binding.previousButton.visibility = if (currentQuestionIndex > 0) Button.VISIBLE else Button.INVISIBLE
+        binding.nextButton.visibility = if (currentQuestionIndex < questionKeys.size - 1) Button.VISIBLE else Button.GONE
     }
 
-
     private fun startTimer() {
-        d=intent.getLongExtra("Duration", 6L)
-        Log.e("duration321", d.toString())
-        val quizTimeMillis = d * 60 * 1000 // Convert minutes to milliseconds
-        val countDownInterval = 1000L // 1 second
-
-        countDownTimer = object : CountDownTimer(quizTimeMillis, countDownInterval) {
+        d = intent.getLongExtra("Duration", 6L)
+        val quizTimeMillis = d * 60 * 1000
+        countDownTimer = object : CountDownTimer(quizTimeMillis, 1000L) {
             override fun onTick(millisUntilFinished: Long) {
                 val minutes = TimeUnit.MILLISECONDS.toMinutes(millisUntilFinished)
                 val seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) % 60
-                val timeRemainingFormatted = String.format("%02d:%02d", minutes, seconds)
-                timerTextView.text = timeRemainingFormatted
+                timerTextView.text = String.format("%02d:%02d", minutes, seconds)
+                when {
+                    millisUntilFinished < 30_000 -> timerTextView.setTextColor(Color.parseColor("#D32F2F"))
+                    millisUntilFinished < 60_000 -> timerTextView.setTextColor(Color.parseColor("#F57C00"))
+                    else -> timerTextView.setTextColor(Color.parseColor("#0D47A1"))
+                }
             }
-
-            override fun onFinish() {
-                finishQuiz()
-            }
+            override fun onFinish() { finishQuiz() }
         }.start()
     }
 
@@ -173,8 +141,7 @@ class ShortQuestionActivity : AppCompatActivity() {
 
     private fun finishQuiz() {
         val intent = Intent(this, ShortResultActivity::class.java)
-        val json = Gson().toJson(shortQuiz)
-        intent.putExtra("QUIZ", json)
+        intent.putExtra("QUIZ", Gson().toJson(shortQuiz))
         startActivity(intent)
         finish()
     }
@@ -183,8 +150,7 @@ class ShortQuestionActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setMessage("Are you sure you want to exit?")
             .setPositiveButton("Yes") { _, _ ->
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
+                startActivity(Intent(this, MainActivity::class.java))
                 finish()
             }
             .setNegativeButton("No", null)

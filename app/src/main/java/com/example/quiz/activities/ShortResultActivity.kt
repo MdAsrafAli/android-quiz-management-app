@@ -3,83 +3,67 @@ package com.example.quiz.activities
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.quiz.R
-import com.example.quiz.adapters.AnswerAdapter
 import com.example.quiz.adapters.ResultAdapter
-import com.example.quiz.models.Quiz
-import com.example.quiz.models.ShortQuestion
 import com.example.quiz.models.ShortQuiz
 import com.google.gson.Gson
 
 class ShortResultActivity : AppCompatActivity() {
-    lateinit var quiz: ShortQuiz
-    lateinit var resultScoreTextView: TextView // Moved initialization here
+    private lateinit var quiz: ShortQuiz
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.answer_activity)
-        resultScoreTextView = findViewById(R.id.resultScoreTextView) // Initialize here
         setUpViews()
-        GoHome()
-        resultScoreTextView.text = "Your Result : "
+        findViewById<com.google.android.material.button.MaterialButton>(R.id.homeButton)
+            .setOnClickListener {
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            }
     }
 
     private fun setUpViews() {
         val quizData = intent.getStringExtra("QUIZ")
-        if(quizData != null)
-        {
-            quiz = Gson().fromJson<ShortQuiz>(quizData, ShortQuiz::class.java)
-
-            setAnswerView()
-
-        }else
-        {
-            Log.e("quizData",quizData.toString())
+        if (quizData == null) {
+            Log.e("ShortResultActivity", "No quiz data received")
+            finish()
+            return
         }
+        quiz = Gson().fromJson(quizData, ShortQuiz::class.java)
+        showScore()
+        setAnswerView()
+    }
 
+    private fun showScore() {
+        var correct = 0
+        val total = quiz.questions.size
+        for (q in quiz.questions.values) {
+            if (q.userAnswer?.trim()?.lowercase() == q.correctanswer?.trim()?.lowercase()) {
+                correct++
+            }
+        }
+        val pct = if (total > 0) (correct * 100) / total else 0
+        findViewById<TextView>(R.id.resultScoreTextView).text = "$correct / $total correct"
+        findViewById<TextView>(R.id.tvPoints).text = "$pct% accuracy"
     }
 
     private fun setAnswerView() {
         val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
-        val adapter = ResultAdapter(quiz.questions.values.toList())
-        recyclerView.adapter = adapter
-    }
-    override fun onPause() {
-        super.onPause()
-        finish()
+        recyclerView.adapter = ResultAdapter(quiz.questions.values.toList())
     }
 
-
-    private fun GoHome(){
-        val btnHome: Button = findViewById(R.id.homeButton)
-        btnHome.setOnClickListener{
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
-            finish()
-        }
-    }
-    override fun onDestroy() {
-        super.onDestroy()
-        // Ensure that the activity is finished when it is destroyed
-        finish()
-    }
     override fun onBackPressed() {
-        // Build an AlertDialog for confirmation
         AlertDialog.Builder(this)
-            .setMessage("Go home screen?")
+            .setMessage("Go to home screen?")
             .setPositiveButton("Yes") { _, _ ->
-                // User confirmed, navigate to MainActivity
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                finish() // Finish the current activity
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
             }
-            .setNegativeButton("No", null) // Do nothing if user cancels
+            .setNegativeButton("No", null)
             .show()
     }
 }
